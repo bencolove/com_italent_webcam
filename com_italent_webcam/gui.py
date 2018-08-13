@@ -71,13 +71,17 @@ class APP(tk.Frame):
         self.image_container.image = new_img
         self.image_container.configure(image = new_img)
 
+    def start(self):
+        self.mainloop()
+
     def on_closing(self):
         print('closing down ...')
         self.subscription.dispose()
         self.webcam.release()
         self.master.destroy()
+        print('quit')
         exit()
 
-app = APP()
-
-app.mainloop()
+if __name__ == '__main__':
+    app = APP()
+    app.start()

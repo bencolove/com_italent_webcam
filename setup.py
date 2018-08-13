@@ -5,7 +5,6 @@ import io
 def load_dependencies():
     filename = 'requirements.txt'
     encoding = 'utf-8'
-    buf = []
     with io.open(filename, encoding=encoding) as f:
         return [line.strip() for line in f.readlines()]
 

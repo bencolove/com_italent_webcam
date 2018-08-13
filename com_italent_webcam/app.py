@@ -8,25 +8,8 @@ from PIL import Image, ImageTk
 from rx import Observable, Observer 
 from rx.concurrency import ThreadPoolScheduler
 
-class Webcam:
-    def __init__(self):
-        self._cap = cv.VideoCapture(0)
-
-    def as_observable(self):
-        return Observable.interval(100) \
-            .map(lambda i: self.__class__._convert_frame_to_pil_image(self._cap.read()[1]))
-    
-    @staticmethod
-    def _convert_frame_to_pil_image(frame):
-        cv_img = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        return Image.fromarray(cv_img)
-
-    def release(self):
-        self._cap.release()
-
-# video = WebcamCapturer()
-
-# video.show_video()
+from webcam import Webcam
+from face_classifier import FaceClassifier
 
 class APP(tk.Frame):
     def __init__(self, master=tk.Tk(), size="400x300"):
@@ -35,7 +18,12 @@ class APP(tk.Frame):
         # window close hook
         master.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.master.geometry(size)
+
         self.webcam = Webcam()
+
+        # face detector
+        self.classifier = FaceClassifier()
+
         self.initialize_gui()
 
     def initialize_gui(self):
@@ -64,7 +52,19 @@ class APP(tk.Frame):
         
         self.subscription = self.webcam.as_observable() \
             .observe_on(pool_scheduler) \
-            .subscribe(on_next = lambda pil: self.master.after(0, lambda: self.update_image(pil)))
+            .map(lambda frame: self._detect_and_draw(frame)) \
+            .subscribe(on_next = lambda pil: self.master.after(0, lambda: self.update_image(pil)),
+                on_error=lambda err: print(err))
+
+    def _detect_and_draw(self, frame):
+        gray = self.classifier.to_gray_scale(frame)
+        faces = self.classifier.detect(gray)
+        modified_frame = self.classifier.draw_retangles(frame, faces)
+        return self._convert_frame_to_pil_image(modified_frame)
+
+    def _convert_frame_to_pil_image(self, frame):
+        cv_img = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        return Image.fromarray(cv_img)
         
     def update_image(self, pil_image):
         new_img = ImageTk.PhotoImage(pil_image)
@@ -79,6 +79,7 @@ class APP(tk.Frame):
         self.subscription.dispose()
         self.webcam.release()
         self.master.destroy()
+        cv.destroyAllWindows()
         print('quit')
         exit()
 

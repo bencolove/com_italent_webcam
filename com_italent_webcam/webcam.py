@@ -9,6 +9,8 @@ class Webcam:
         # self._subject = Subject()
 
         self._source = Observable.interval(100) \
+            .take(100) \
+            .do_action(print) \
             .map(lambda i: self._cap.read()[1]) \
             .publish() \
             .auto_connect()

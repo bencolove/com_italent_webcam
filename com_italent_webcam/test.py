@@ -1,4 +1,5 @@
 import cv2 as cv
+from rx import Observable
 
 def test_camera():
     camera = cv.VideoCapture(0)
@@ -38,8 +39,19 @@ def test_error():
 
     cv.imshow('', None)
 
+def test_multicast():
+    source = Observable.from_(["Bravo", "Charlie", "Tango", "Foxtrot"]) \
+        .publish() \
+        .auto_connect(2)
+
+
+    source.map(lambda name: f'{name}_modified').subscribe(lambda s: print("Subscriber 1: {0}".format(s)))
+    source.subscribe(lambda s: print("Subscriber 2: {0}".format(s)))
+
 if __name__ == '__main__':
     frame = test_camera()
     test_classifier(frame)
+
+    
 
     

@@ -27,11 +27,7 @@ def test_classifier(frame):
     cv.waitKey(0)
     cv.destroyAllWindows()
 
-
-if __name__ == '__main__':
-    # frame = test_camera()
-    # test_classifier(frame)
-
+def test_error():
     def verbose_error_handler(status, func_name, err_msg, file_name, line, userdata=''):
         print ("Status = %d" % status)
         print ("Function = %s" % func_name)
@@ -41,3 +37,9 @@ if __name__ == '__main__':
     cv.redirectError(verbose_error_handler)
 
     cv.imshow('', None)
+
+if __name__ == '__main__':
+    frame = test_camera()
+    test_classifier(frame)
+
+    

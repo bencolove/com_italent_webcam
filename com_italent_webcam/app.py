@@ -10,10 +10,11 @@ import cv2 as cv
 from PIL import Image, ImageTk
 
 from rx import Observable, Observer 
-from rx.concurrency import ThreadPoolScheduler
+from rx.concurrency import TkinterScheduler,ThreadPoolScheduler
 
 from webcam import Webcam
 from face_classifier import FaceClassifier
+from service import FaceService
 
 class APP(tk.Frame):
     def __init__(self, master=tk.Tk(), size="400x300"):
@@ -24,15 +25,19 @@ class APP(tk.Frame):
         # size of the root window
         self.master.geometry(size)
         # webcam instance
-        self.webcam = Webcam()
+        # self.webcam = Webcam()
 
         # face detector
         self.classifier = FaceClassifier()
+
+        self.service = FaceService()
+
         # initialize visual components on the window
         self.initialize_gui()
         # handler to stop streams
         self.webcam_subscription = None
         self.api_subscription = None
+        self.service_subscription = None
         # temporarily useage
         self._timer = 1 
 
@@ -98,42 +103,54 @@ class APP(tk.Frame):
     def start(self):
         """ call it to let the GUI run """
         self._start_stream()
+        # self._stream()
         self.mainloop()
         print('outa mainloop')
+
+    def _stream(self):
+        # pool_scheduler = ThreadPoolScheduler(2)
+        scheduler = TkinterScheduler(self.master)
+        self.service_subscription = self.service.as_observable() \
+            .map(lambda frame: self._convert_frame_to_pil_image(frame)) \
+            .observe_on(scheduler) \
+            .subscribe(
+                on_next = lambda pil_image: self.master.after(0, lambda: self.update_image(pil_image)),
+                on_error=print)
         
     def _start_stream(self):
         # setup source
-        pool_scheduler = ThreadPoolScheduler(2)
-        
-        source = self.webcam.as_observable() \
-            .observe_on(pool_scheduler) \
-            .tap(lambda frame: print(f'thread name = {threading.current_thread().name}'))
+        # pool_scheduler = ThreadPoolScheduler(2)
+        ui_scheduler = TkinterScheduler(self.master)
+        # self.service_subscription = self.service.as_observable()
 
-        # setup webcam stream
-        self.webcam_subscription = source \
-            .map(lambda frame: self._detect_and_draw(frame)) \
+        self.service_subscription = self.service.as_observable() \
+            .map(self._convert_frame_to_pil_image) \
+            .observe_on(ui_scheduler) \
             .subscribe(
                 on_next = lambda pil: self.master.after(0, lambda: self.update_image(pil)),
                 on_error=print)
-        # setup api stream
-        self.api_subscription = source \
-            .flat_map(lambda frame: self.analyze_face(frame)) \
-            .do_action(print) \
-            .subscribe(
-                on_next = lambda json_resp: self.master.after(0, lambda: self.update_text(json_resp)),
-                on_error=print)
 
+        self.api_subscription = self.service.api_stream() \
+            .subscribe(
+                on_next = lambda rst: self.master.after(0, lambda: self.update_text(json.dumps(rst))),
+                on_error=print
+            )
+       
     def on_closing(self):
-        print('closing down ...')
-        print('stop streams')
-        self.webcam_subscription and self.webcam_subscription.dispose()
-        self.api_subscription and self.api_subscription.dispose()
-        print('release camera')
-        self.webcam.release()
-        print('destroy windows')
+        prefix = 'app.on_closing'
+        print('{} - stop streams'.format(prefix))
+        if self.api_subscription:
+            print('{} - stop aip stream'.format(prefix))
+            self.api_subscription.dispose()
+        if self.service_subscription:
+            print('{} - stop webcam stream'.format(prefix))
+            self.service_subscription.dispose()
+      
+        print('{} - destroy windows'.format(prefix))
         self.master.destroy()
         cv.destroyAllWindows()
-        print('system exit')
+        print('{} - system exit'.format(prefix))
+        time.sleep(5)
         sys.exit()
 
 if __name__ == '__main__':

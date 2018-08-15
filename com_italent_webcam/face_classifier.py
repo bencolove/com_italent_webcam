@@ -1,5 +1,6 @@
 import cv2 as cv
 import os
+from collections import Iterable
 
 class FaceClassifier:
     def __init__(self, cascade_file='haarcascade_frontalface_default.xml'):
